@@ -45,7 +45,63 @@ impl StateMachine for AccountedCurrency {
     type Transition = AccountingTransaction;
 
     fn next_state(starting_state: &Balances, t: &AccountingTransaction) -> Balances {
-        todo!("Exercise 1")
+        use AccountingTransaction::*;
+
+        let mut balances = starting_state.clone();
+        match t {
+            Mint { minter, amount } => {
+                if *amount == 0 {
+                    balances.remove(minter);
+                } else {
+                    balances
+                        .entry(*minter)
+                        .and_modify(|val| *val += *amount)
+                        .or_insert(*amount);
+                }
+                balances
+            }
+            Burn { burner, amount } => {
+                if let Some(value) = balances.get(burner) {
+                    let new_value = value.saturating_sub(*amount);
+                    if new_value == 0 {
+                        balances.remove(burner);
+                    } else {
+                        balances.insert(*burner, new_value);
+                    };
+                }
+
+                balances
+            }
+            Transfer {
+                sender,
+                receiver,
+                amount,
+            } => {
+                if sender == receiver {
+                    return balances;
+                }
+
+                if let Some(sndr_b) = balances.get(sender) {
+                    if sndr_b < amount {
+                        return balances;
+                    }
+                    let new_sndr_b = sndr_b.saturating_sub(*amount);
+
+                    if new_sndr_b == 0 {
+                        balances.remove(sender);
+                    } else {
+                        balances.insert(*sender, new_sndr_b);
+                    }
+
+                    balances
+                        .entry(*receiver)
+                        .and_modify(|value| *value = value.saturating_add(*amount))
+                        .or_insert(*amount);
+                }
+
+                balances
+            }
+        }
     }
 }
 
