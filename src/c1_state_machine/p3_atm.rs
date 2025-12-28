@@ -3,6 +3,7 @@
 //! entered the wrong pin.
 
 use super::StateMachine;
+use std::fmt;
 
 /// The keys on the ATM keypad
 #[derive(Hash, Debug, PartialEq, Eq, Clone)]
@@ -12,6 +13,18 @@ pub enum Key {
     Three,
     Four,
     Enter,
+}
+
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::One => write!(f, "1"),
+            Self::Two => write!(f, "2"),
+            Self::Three => write!(f, "3"),
+            Self::Four => write!(f, "4"),
+            Self::Enter => write!(f, ""), // panic?
+        }
+    }
 }
 
 /// Something you can do to the ATM
@@ -58,7 +71,88 @@ impl StateMachine for Atm {
     type Transition = Action;
 
     fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 4")
+        use Action::*;
+        use Auth::*;
+
+        let Atm {
+            cash_inside,
+            expected_pin_hash,
+            keystroke_register,
+        } = starting_state.clone();
+
+        match (&expected_pin_hash, t) {
+            (Waiting | Authenticating(_), SwipeCard(pin)) => Self {
+                cash_inside,
+                expected_pin_hash: Authenticating(*pin),
+                keystroke_register: keystroke_register.clone(),
+            },
+            (Waiting, PressKey(_)) => starting_state.clone(),
+            (Authenticating(pin), PressKey(key)) => {
+                if key == &Key::Enter {
+                    let in_pin = crate::hash(&keystroke_register);
+                    let keystroke_register = vec![];
+                    if in_pin == *pin {
+                        Self {
+                            cash_inside,
+                            expected_pin_hash: Authenticated,
+                            keystroke_register,
+                        }
+                    } else {
+                        Self {
+                            cash_inside,
+                            expected_pin_hash: Waiting,
+                            keystroke_register,
+                        }
+                    }
+                } else {
+                    let mut keys = keystroke_register.clone();
+                    keys.push(key.clone());
+                    Self {
+                        cash_inside,
+                        expected_pin_hash,
+                        keystroke_register: keys,
+                    }
+                }
+            }
+            (Authenticated, PressKey(key)) => {
+                if key == &Key::Enter {
+                    if keystroke_register.is_empty() {
+                        return starting_state.clone();
+                    }
+
+                    let amount = keystroke_register
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<String>()
+                        .parse::<u64>()
+                        .unwrap_or(0);
+                    let keystroke_register = vec![];
+                    if amount > cash_inside || amount == 0 {
+                        Self {
+                            cash_inside,
+                            keystroke_register,
+                            expected_pin_hash: Waiting,
+                        }
+                    } else {
+                        let new_cash = cash_inside - amount;
+                        Self {
+                            cash_inside: new_cash,
+                            keystroke_register,
+                            expected_pin_hash: Waiting,
+                        }
+                    }
+                } else {
+                    let mut keys = keystroke_register.clone();
+                    keys.push(key.clone());
+                    Self {
+                        cash_inside,
+                        expected_pin_hash,
+                        keystroke_register: keys,
+                    }
+                }
+            }
+            _ => unimplemented!(),
+        }
     }
 }
 
