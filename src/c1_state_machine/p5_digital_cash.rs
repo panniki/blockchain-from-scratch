@@ -94,7 +94,76 @@ impl StateMachine for DigitalCashSystem {
     type Transition = CashTransaction;
 
     fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 1")
+        use CashTransaction::*;
+
+        let mut new_state = starting_state.clone();
+        match t {
+            Mint { minter, amount } => {
+                let bill = Bill {
+                    amount: *amount,
+                    owner: *minter,
+                    serial: new_state.next_serial(),
+                };
+                new_state.add_bill(bill);
+            }
+            Transfer { spends, receives } => {
+                if spends.is_empty() {
+                    return new_state;
+                }
+
+                // make sure spends are uniq
+                if spends.iter().collect::<HashSet<_>>().len() < spends.len() {
+                    return new_state;
+                }
+
+                if receives.is_empty() {
+                    // burn the bills
+                    spends.iter().for_each(|bill| {
+                        new_state.bills.remove(bill);
+                    });
+                    return new_state;
+                }
+
+                let maybe_spends = spends
+                    .iter()
+                    .try_fold(0u64, |total, x| total.checked_add(x.amount));
+                let maybe_receives = receives
+                    .iter()
+                    .try_fold(0u64, |total, x| total.checked_add(x.amount));
+
+                if let (Some(total_spnd), Some(total_rcvs)) = (maybe_spends, maybe_receives) {
+                    if total_rcvs == 0 || total_spnd < total_rcvs {
+                        return new_state;
+                    }
+
+                    let invalid_serial = receives.iter().enumerate().any(|(index, rbill)| {
+                        rbill.serial != new_state.next_serial() + index as u64
+                    });
+                    if invalid_serial {
+                        return new_state;
+                    }
+
+                    // spends must be included in bills
+                    let collides_with_existing =
+                        spends.iter().any(|bill| !new_state.bills.contains(bill));
+                    if collides_with_existing {
+                        return new_state;
+                    }
+
+                    // burn spends
+                    spends.iter().for_each(|sbill| {
+                        new_state.bills.remove(sbill);
+                    });
+
+                    // add the receives
+                    receives.iter().for_each(|rbill| {
+                        new_state.add_bill(rbill.clone());
+                    });
+                }
+            }
+        }
+
+        new_state
     }
 }
 
