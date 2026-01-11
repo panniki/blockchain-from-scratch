@@ -25,12 +25,32 @@ pub struct Header {
 impl Header {
     /// Returns a new valid genesis header.
     fn genesis() -> Self {
-        todo!("Exercise 1")
+        Self {
+            parent: 0,
+            height: 0,
+            extrinsics_root: (),
+            state_root: (),
+            consensus_digest: (),
+        }
     }
 
     /// Create and return a valid child header.
     fn child(&self) -> Self {
-        todo!("Exercise 2")
+        let Header {
+            parent,
+            height,
+            extrinsics_root,
+            state_root,
+            consensus_digest,
+        } = self.clone();
+
+        Self {
+            parent: hash(&self),
+            height: height.saturating_add(1),
+            extrinsics_root,
+            state_root,
+            consensus_digest,
+        }
     }
 
     /// Verify that all the given headers form a valid chain from this header to the tip.
@@ -38,7 +58,14 @@ impl Header {
     /// This method may assume that the block on which it is called is valid, but it
     /// must verify all of the blocks in the slice;
     fn verify_sub_chain(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 3")
+        if let Some(first) = chain.first() {
+            if first.parent != hash(self) || first.height != self.height + 1 {
+                return false;
+            }
+        }
+        chain
+            .windows(2)
+            .all(|w| w[1].parent == hash(&w[0]) && w[0].height + 1 == w[1].height)
     }
 }
 
@@ -46,14 +73,31 @@ impl Header {
 
 /// Build and return a valid chain with exactly five blocks including the genesis block.
 fn build_valid_chain_length_5() -> Vec<Header> {
-    todo!("Exercise 4")
+    let mut chain = vec![Header::genesis()];
+    for _ in 0..4 {
+        if let Some(last) = chain.last() {
+            let next = last.child();
+            chain.push(next);
+        }
+    }
+
+    chain
 }
 
 /// Build and return a chain with at least three headers.
 /// The chain should start with a proper genesis header,
 /// but the entire chain should NOT be valid.
 fn build_an_invalid_chain() -> Vec<Header> {
-    todo!("Exercise 5")
+    let mut chain = vec![Header::genesis()];
+    for _ in 0..4 {
+        if let Some(last) = chain.last() {
+            let mut next = last.child();
+            next.height = next.height + 10;
+            next.parent = hash(&next.height);
+            chain.push(next);
+        }
+    }
+    chain
 }
 
 // To run these tests: `cargo test bc_1
