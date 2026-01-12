@@ -13,7 +13,7 @@ type Hash = u64;
 /// In this lesson we are introducing proof of work onto our blocks. We need a hash threshold.
 /// You may change this as you see fit, and I encourage you to experiment. Probably best to start
 /// high so we aren't wasting time mining. I'll start with 1 in 100 blocks being valid.
-pub const THRESHOLD: u64 = u64::max_value() / 100;
+pub const THRESHOLD: u64 = u64::MAX / 1000;
 
 /// In this lesson we introduce the concept of a contentious hard fork. The fork will happen at
 /// this block height.
@@ -37,12 +37,35 @@ pub struct Header {
 impl Header {
     /// Returns a new valid genesis header.
     fn genesis() -> Self {
-        todo!("Exercise 1")
+        Self {
+            parent: 0,
+            height: 0,
+            extrinsic: 0,
+            state: 0,
+            consensus_digest: 0,
+        }
     }
 
     /// Create and return a valid child header.
     fn child(&self, extrinsic: u64) -> Self {
-        todo!("Exercise 2")
+        let (parent, height, state) = (
+            hash(self),
+            self.height.saturating_add(1),
+            self.state.saturating_add(extrinsic),
+        );
+        let make_header = |nonce| Self {
+            parent,
+            height,
+            extrinsic,
+            state,
+            consensus_digest: self.consensus_digest.saturating_add(nonce),
+        };
+
+        // "mining"
+        (0..THRESHOLD)
+            .map(make_header)
+            .find(|c| hash(c) < THRESHOLD)
+            .unwrap_or(make_header(1)) // clearly should be Result type
     }
 
     /// Verify that all the given headers form a valid chain from this header to the tip.
@@ -50,7 +73,23 @@ impl Header {
     /// In addition to all the rules we had before, we now need to check that the block hash
     /// is below a specific threshold.
     fn verify_sub_chain(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 3")
+        if let Some(child_header) = chain.first() {
+            if !Self::is_child_valid(self, child_header) {
+                return false;
+            }
+        }
+
+        chain.windows(2).all(|w| Self::is_child_valid(&w[0], &w[1]))
+    }
+
+    fn is_child_valid(parent_header: &Header, child_header: &Header) -> bool {
+        let is_correct_hash = hash(&parent_header) == child_header.parent;
+        let is_correct_height = child_header.height == parent_header.height + 1;
+        let is_correct_state =
+            child_header.state == parent_header.state.saturating_add(child_header.extrinsic);
+        let is_correct_treshold = hash(child_header) < THRESHOLD;
+
+        is_correct_hash && is_correct_height && is_correct_state && is_correct_treshold
     }
 
     // After the blockchain ran for a while, a political rift formed in the community.
@@ -62,13 +101,44 @@ impl Header {
     /// verify that the given headers form a valid chain.
     /// In this case "valid" means that the STATE MUST BE EVEN.
     fn verify_sub_chain_even(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 4")
+        if let Some(child_header) = chain.first() {
+            if !Self::is_child_valid(self, child_header) {
+                return false;
+            }
+        }
+
+        chain.windows(2).all(|w| Self::is_child_even(&w[0], &w[1]))
+    }
+
+    fn is_child_even(parent_header: &Header, child_header: &Header) -> bool {
+        let is_correct_hash = hash(&parent_header) == child_header.parent;
+        let is_correct_height = child_header.height == parent_header.height + 1;
+        let is_correct_state =
+            child_header.state.is_multiple_of(FORK_HEIGHT) || child_header.state == 3;
+        let is_correct_treshold = hash(child_header) < THRESHOLD;
+
+        is_correct_hash && is_correct_height && is_correct_state && is_correct_treshold
     }
 
     /// verify that the given headers form a valid chain.
     /// In this case "valid" means that the STATE MUST BE ODD.
     fn verify_sub_chain_odd(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 5")
+        if let Some(child_header) = chain.first() {
+            if !Self::is_child_valid(self, child_header) {
+                return false;
+            }
+        }
+
+        chain.windows(2).all(|w| Self::is_child_odd(&w[0], &w[1]))
+    }
+
+    fn is_child_odd(parent_header: &Header, child_header: &Header) -> bool {
+        let is_correct_hash = hash(&parent_header) == child_header.parent;
+        let is_correct_height = child_header.height == parent_header.height + 1;
+        let is_correct_state = !child_header.state.is_multiple_of(FORK_HEIGHT);
+        let is_correct_treshold = hash(child_header) < THRESHOLD;
+
+        is_correct_hash && is_correct_height && is_correct_state && is_correct_treshold
     }
 }
 
@@ -89,7 +159,31 @@ impl Header {
 /// G -- 1 -- 2
 ///            \-- 3'-- 4'
 fn build_contentious_forked_chain() -> (Vec<Header>, Vec<Header>, Vec<Header>) {
-    todo!("Exercise 6")
+    let g = Header::genesis();
+    let mut prefix = vec![Header::genesis()];
+    for i in 1..3 {
+        if let Some(last) = prefix.last() {
+            let child = last.child(i);
+            prefix.push(child)
+        }
+    }
+    let last = prefix.last().expect("gimme the last one from prefix");
+    let mut even = vec![last.child(1)];
+    let mut odd = vec![last.child(2)];
+    for i in 2..5 {
+        if i % 2 == 0 {
+            let even_last = even.last().expect("having last in evens");
+            let child = even_last.child(i);
+            even.push(child)
+        } else {
+            let i = if i == 3 { 4 } else { i };
+            let odd_last = odd.last().expect("having last in odds");
+            let child = odd_last.child(i);
+            odd.push(child)
+        }
+    }
+
+    (prefix, even, odd)
 }
 
 // To run these tests: `cargo test bc_3`
