@@ -7,9 +7,9 @@
 //! Since we have nothing to add to the Block or Header data structures in this lesson,
 //! we will import them from the previous lesson.
 
+use super::p3_consensus::THRESHOLD;
 use super::p4_batched_extrinsics::{Block, Header};
 use crate::hash;
-use super::p3_consensus::THRESHOLD;
 
 /// Judge which blockchain is "best" when there are multiple candidates. There are several
 /// meaningful notions of "best" which is why this is a trait instead of just a

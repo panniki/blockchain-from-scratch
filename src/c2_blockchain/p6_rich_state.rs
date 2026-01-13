@@ -12,8 +12,8 @@
 //! naming coincidence foreshadows a key abstraction that we will make in a coming chapter.
 
 type Hash = u64;
-use crate::hash;
 use super::p3_consensus::THRESHOLD;
+use crate::hash;
 
 /// In this section we will use sum and product together to be our state. While this is only a doubling of state size
 /// remember that in real world blockchains, the state is often really really large.

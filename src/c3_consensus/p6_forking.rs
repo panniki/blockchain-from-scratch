@@ -43,6 +43,7 @@ where
 
 /// Create a PoA consensus engine that changes authorities part way through the chain's history.
 /// Given the initial authorities, the authorities after the fork, and the height at which the fork occurs.
+#[allow(dependency_on_unit_never_type_fallback)]
 fn change_authorities(
     fork_height: u64,
     initial_authorities: Vec<ConsensusAuthority>,
@@ -52,6 +53,7 @@ fn change_authorities(
 }
 
 /// Create a PoW consensus engine that changes the difficulty part way through the chain's history.
+#[allow(dependency_on_unit_never_type_fallback)]
 fn change_difficulty(
     fork_height: u64,
     initial_difficulty: u64,
@@ -67,6 +69,7 @@ fn change_difficulty(
 /// Create a consensus engine that introduces the even-only logic only after the given fork height.
 /// Other than the evenness requirement, the consensus rules should not change at the fork. This function
 /// should work with either PoW, PoA, or anything else as the underlying consensus engine.
+#[allow(dependency_on_unit_never_type_fallback)]
 fn even_after_given_height<Original: Consensus>(fork_height: u64) -> impl Consensus {
     todo!("Exercise 5")
 }
@@ -77,6 +80,7 @@ fn even_after_given_height<Original: Consensus>(fork_height: u64) -> impl Consen
 /// the fundamentals are the same.
 ///
 /// For this task, you may use the PowOrPoaDigest type from the previous module if you like.
+#[allow(dependency_on_unit_never_type_fallback)]
 fn pow_to_poa(
     fork_height: u64,
     difficulty: u64,
